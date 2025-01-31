@@ -58,32 +58,42 @@ const Grid: React.FC<GridProps> = React.memo(({
 
   return (
     <div 
-      className="grid gap-0 border border-gray-300 rounded-lg"
+      className="relative touch-none"
       style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${gridSize.cols}, ${cellSize}px)`,
+        width: gridSize.cols * cellSize,
+        height: gridSize.rows * cellSize,
+        maxWidth: '100vw',
+        maxHeight: '70vh',
       }}
     >
-      {grid.map((row, rowIdx) =>
-        row.map((node, colIdx) => (
-          <div
-            key={`${rowIdx}-${colIdx}`}
-            data-row={rowIdx}
-            data-col={colIdx}
-            className="border border-gray-200"
-            style={{
-              width: cellSize,
-              height: cellSize,
-              backgroundColor: getNodeColor(node),
-              transition: 'background-color 0.3s ease',
-            }}
-            onClick={(e) => handleMouseEvent(e, onNodeClick)}
-            onMouseDown={(e) => handleMouseEvent(e, onMouseDown)}
-            onMouseEnter={(e) => handleMouseEvent(e, onMouseEnter)}
-            onMouseUp={onMouseUp}
-          />
-        ))
-      )}
+      <div 
+        className="grid gap-0 border border-gray-300 rounded-lg"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${gridSize.cols}, ${cellSize}px)`,
+        }}
+      >
+        {grid.map((row, rowIdx) =>
+          row.map((node, colIdx) => (
+            <div
+              key={`${rowIdx}-${colIdx}`}
+              data-row={rowIdx}
+              data-col={colIdx}
+              className="border border-gray-200"
+              style={{
+                width: cellSize,
+                height: cellSize,
+                backgroundColor: getNodeColor(node),
+                transition: 'background-color 0.3s ease',
+              }}
+              onClick={(e) => handleMouseEvent(e, onNodeClick)}
+              onMouseDown={(e) => handleMouseEvent(e, onMouseDown)}
+              onMouseEnter={(e) => handleMouseEvent(e, onMouseEnter)}
+              onMouseUp={onMouseUp}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 });
