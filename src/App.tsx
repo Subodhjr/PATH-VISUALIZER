@@ -4,9 +4,11 @@ import Grid from './components/Grid';
 import { Node, NodeType, GridSize } from './types/grid';
 import { dijkstra } from './algorithms/dijkstra';
 import { astar } from './algorithms/astar';
+import { bfs } from './algorithms/bfs';
+import { dfs } from './algorithms/dfs';
 
 // Add algorithm type
-type AlgorithmType = 'dijkstra' | 'astar' | 'compare';
+type AlgorithmType = 'dijkstra' | 'astar' | 'bfs' | 'dfs';
 
 interface AlgorithmMetrics {
   executionTime: number;
@@ -31,6 +33,9 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [dijkstraMetrics, setDijkstraMetrics] = useState<AlgorithmMetrics | null>(null);
   const [astarMetrics, setAstarMetrics] = useState<AlgorithmMetrics | null>(null);
+  const [animationSpeed, setAnimationSpeed] = useState<SpeedOption>('normal');
+  const [bfsMetrics, setBfsMetrics] = useState<AlgorithmMetrics | null>(null);
+  const [dfsMetrics, setDfsMetrics] = useState<AlgorithmMetrics | null>(null);
 
   function createInitialGrid(): Node[][] {
     const newGrid: Node[][] = [];
@@ -103,7 +108,7 @@ function App() {
     setIsMousePressed(false);
   }, []);
 
-  const runAlgorithm = (type: 'dijkstra' | 'astar', grid: Node[][]): {
+  const runAlgorithm = (type: 'dijkstra' | 'astar' | 'bfs' | 'dfs', grid: Node[][]): {
     visitedNodes: Node[];
     path: Node[];
     executionTime: number;
@@ -111,7 +116,11 @@ function App() {
     const startTime = performance.now();
     const result = type === 'dijkstra' 
       ? dijkstra(grid, startNode!, endNode!)
-      : astar(grid, startNode!, endNode!);
+      : type === 'astar' 
+        ? astar(grid, startNode!, endNode!)
+        : type === 'bfs' 
+          ? bfs(grid, startNode!, endNode!)
+          : dfs(grid, startNode!, endNode!);
     const endTime = performance.now();
     return {
       ...result,
@@ -119,182 +128,120 @@ function App() {
     };
   };
 
+  // Add speed mapping function
+  const getAnimationSpeed = (speed: SpeedOption): number => {
+    const speedMap = {
+      veryFast: 5,
+      fast: 15,
+      normal: 25,
+      slow: 50,
+      verySlow: 100
+    };
+    return speedMap[speed];
+  };
+
   const visualizeAlgorithm = async () => {
+    if (!startNode || !endNode || isRunning) return;
+    setIsRunning(true);
+    setError(null);
+
+    // Reset the grid visualization
+    const newGrid = grid.map(row =>
+      row.map(node => ({
+        ...node,
+        isVisited: false,
+        distance: Infinity,
+        previousNode: null,
+        type: ['visited', 'path'].includes(node.type) ? 'empty' : node.type,
+      }))
+    );
+    setGrid(newGrid);
+
     try {
-      if (!startNode || !endNode) {
-        setError('Please set both start and end points');
-        return;
-      }
-      
-      setIsRunning(true);
-      setError(null);
+      // Reset all metrics
       setDijkstraMetrics(null);
       setAstarMetrics(null);
+      setBfsMetrics(null);
+      setDfsMetrics(null);
 
-      // Reset grid visualization
-      const newGrid = grid.map(row =>
-        row.map(node => ({
-          ...node,
-          distance: Infinity,
-          gScore: Infinity,
-          fScore: Infinity,
-          hScore: 0,
-          isVisited: false,
-          previousNode: null,
-          type: ['visited', 'path', 'visited-dijkstra', 'visited-astar', 'path-dijkstra', 'path-astar'].includes(node.type) 
-            ? 'empty' 
-            : node.type,
-        }))
-      );
-      setGrid(newGrid);
-
-      if (algorithm === 'compare') {
-        // Run both algorithms
-        const gridCopy1 = newGrid.map(row => row.map(node => ({ ...node })));
-        const gridCopy2 = newGrid.map(row => row.map(node => ({ ...node })));
-
-        const dijkstraResult = runAlgorithm('dijkstra', gridCopy1);
-        const astarResult = runAlgorithm('astar', gridCopy2);
-
-        // Visualize both algorithms side by side
-        const maxLength = Math.max(
-          dijkstraResult.visitedNodes.length,
-          astarResult.visitedNodes.length
-        );
-
-        for (let i = 0; i < maxLength; i++) {
-          await new Promise<void>(resolve => {
-            setTimeout(() => {
-              setGrid(g => {
-                const newG = g.map(row => row.map(node => ({ ...node })));
-                
-                if (i < dijkstraResult.visitedNodes.length) {
-                  const dijkstraNode = dijkstraResult.visitedNodes[i];
-                  if (newG[dijkstraNode.row][dijkstraNode.col].type === 'empty') {
-                    newG[dijkstraNode.row][dijkstraNode.col].type = 'visited-dijkstra';
-                  }
-                }
-
-                if (i < astarResult.visitedNodes.length) {
-                  const astarNode = astarResult.visitedNodes[i];
-                  if (newG[astarNode.row][astarNode.col].type === 'empty') {
-                    newG[astarNode.row][astarNode.col].type = 'visited-astar';
-                  }
-                }
-
-                return newG;
-              });
-              resolve();
-            }, ANIMATION_SPEED);
-          });
+      const startTime = performance.now();
+      const result = (() => {
+        switch (algorithm) {
+          case 'dijkstra':
+            return dijkstra(newGrid, startNode, endNode);
+          case 'astar':
+            return astar(newGrid, startNode, endNode);
+          case 'bfs':
+            return bfs(newGrid, startNode, endNode);
+          case 'dfs':
+            return dfs(newGrid, startNode, endNode);
+          default:
+            throw new Error('Invalid algorithm selected');
         }
+      })();
+      const endTime = performance.now();
 
-        // Visualize paths
-        const maxPathLength = Math.max(
-          dijkstraResult.path.length,
-          astarResult.path.length
-        );
+      // Create metrics
+      const metrics: AlgorithmMetrics = {
+        executionTime: endTime - startTime,
+        nodesVisited: result.visitedNodes.length,
+        pathLength: result.path.length,
+        pathFound: result.path.length > 0
+      };
 
-        for (let i = 0; i < maxPathLength; i++) {
-          await new Promise<void>(resolve => {
-            setTimeout(() => {
-              setGrid(g => {
-                const newG = g.map(row => row.map(node => ({ ...node })));
-                
-                if (i < dijkstraResult.path.length) {
-                  const dijkstraNode = dijkstraResult.path[i];
-                  if (newG[dijkstraNode.row][dijkstraNode.col].type !== 'start' && 
-                      newG[dijkstraNode.row][dijkstraNode.col].type !== 'end') {
-                    newG[dijkstraNode.row][dijkstraNode.col].type = 'path-dijkstra';
-                  }
-                }
-
-                if (i < astarResult.path.length) {
-                  const astarNode = astarResult.path[i];
-                  if (newG[astarNode.row][astarNode.col].type !== 'start' && 
-                      newG[astarNode.row][astarNode.col].type !== 'end') {
-                    newG[astarNode.row][astarNode.col].type = 'path-astar';
-                  }
-                }
-
-                return newG;
-              });
-              resolve();
-            }, ANIMATION_SPEED * 2);
-          });
-        }
-
-        // Set metrics
-        setDijkstraMetrics({
-          executionTime: dijkstraResult.executionTime,
-          nodesVisited: dijkstraResult.visitedNodes.length,
-          pathLength: dijkstraResult.path.length,
-          pathFound: dijkstraResult.path.length > 0
-        });
-
-        setAstarMetrics({
-          executionTime: astarResult.executionTime,
-          nodesVisited: astarResult.visitedNodes.length,
-          pathLength: astarResult.path.length,
-          pathFound: astarResult.path.length > 0
-        });
-
-      } else {
-        // Run single algorithm
-        const result = runAlgorithm(algorithm, newGrid);
-        
-        // Visualize visited nodes
-        for (let i = 0; i < result.visitedNodes.length; i++) {
-          await new Promise<void>(resolve => {
-            setTimeout(() => {
-              setGrid(g => {
-                const newG = g.map(row => row.map(node => ({ ...node })));
-                const node = result.visitedNodes[i];
-                if (newG[node.row][node.col].type === 'empty') {
-                  newG[node.row][node.col].type = 'visited';
-                }
-                return newG;
-              });
-              resolve();
-            }, ANIMATION_SPEED);
-          });
-        }
-
-        // Visualize path
-        if (result.path.length > 0) {
-          for (let i = 0; i < result.path.length; i++) {
-            await new Promise<void>(resolve => {
-              setTimeout(() => {
-                setGrid(g => {
-                  const newG = g.map(row => row.map(node => ({ ...node })));
-                  const node = result.path[i];
-                  if (newG[node.row][node.col].type !== 'start' && 
-                      newG[node.row][node.col].type !== 'end') {
-                    newG[node.row][node.col].type = 'path';
-                  }
-                  return newG;
-                });
-                resolve();
-              }, ANIMATION_SPEED * 2);
-            });
-          }
-        } else {
-          setError('No path found!');
-        }
-
-        // Set metrics for the chosen algorithm
-        const metrics = {
-          executionTime: result.executionTime,
-          nodesVisited: result.visitedNodes.length,
-          pathLength: result.path.length,
-          pathFound: result.path.length > 0
-        };
-
-        if (algorithm === 'dijkstra') {
+      // Set appropriate metrics based on algorithm
+      switch (algorithm) {
+        case 'dijkstra':
           setDijkstraMetrics(metrics);
-        } else {
+          break;
+        case 'astar':
           setAstarMetrics(metrics);
+          break;
+        case 'bfs':
+          setBfsMetrics(metrics);
+          break;
+        case 'dfs':
+          setDfsMetrics(metrics);
+          break;
+      }
+
+      // Visualize visited nodes
+      for (let i = 0; i < result.visitedNodes.length; i++) {
+        await new Promise<void>(resolve => {
+          setTimeout(() => {
+            setGrid(g => {
+              const newG = g.map(row => row.map(node => ({ ...node })));
+              const node = result.visitedNodes[i];
+              if (newG[node.row][node.col].type === 'empty') {
+                newG[node.row][node.col].type = 'visited';
+              }
+              return newG;
+            });
+            resolve();
+          }, getAnimationSpeed(animationSpeed));
+        });
+      }
+
+      // Visualize path
+      if (result.path.length > 0) {
+        for (let i = 0; i < result.path.length; i++) {
+          await new Promise<void>(resolve => {
+            setTimeout(() => {
+              setGrid(g => {
+                const newG = g.map(row => row.map(node => ({ ...node })));
+                const node = result.path[i];
+                if (newG[node.row][node.col].type !== 'start' && 
+                    newG[node.row][node.col].type !== 'end') {
+                  newG[node.row][node.col].type = 'path';
+                }
+                return newG;
+              });
+              resolve();
+            }, getAnimationSpeed(animationSpeed) * 2);
+          });
         }
+      } else {
+        setError('No path found!');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -351,7 +298,8 @@ function App() {
             >
               <option value="dijkstra">Dijkstra's Algorithm</option>
               <option value="astar">A* Algorithm</option>
-              <option value="compare">Compare Both</option>
+              <option value="bfs">Breadth-First Search</option>
+              <option value="dfs">Depth-First Search</option>
             </select>
 
             <button
@@ -359,17 +307,13 @@ function App() {
               onClick={visualizeAlgorithm}
               disabled={!startNode || !endNode || isRunning}
             >
-              {algorithm === 'compare' ? (
-                <>
-                  <Split size={20} />
-                  Compare Algorithms
-                </>
-              ) : (
-                <>
-                  <Play size={20} />
-                  Visualize {algorithm === 'dijkstra' ? "Dijkstra's" : "A*"}
-                </>
-              )}
+              <Play size={20} />
+              Visualize {
+                algorithm === 'dijkstra' ? "Dijkstra's" : 
+                algorithm === 'astar' ? "A*" :
+                algorithm === 'bfs' ? "BFS" :
+                "DFS"
+              }
             </button>
 
             <button
@@ -414,11 +358,11 @@ function App() {
           </div>
 
           {/* Algorithm Metrics */}
-          {(dijkstraMetrics || astarMetrics) && (
-            <div className="mb-6 grid grid-cols-2 gap-4">
-              {dijkstraMetrics && (
+          {(dijkstraMetrics || astarMetrics || bfsMetrics || dfsMetrics) && (
+            <div className="mt-6 grid grid-cols-1 gap-4">
+              {algorithm === 'dijkstra' && dijkstraMetrics && (
                 <div className="p-4 bg-blue-50 rounded-lg">
-                  <h3 className="font-bold text-blue-800 mb-2">Dijkstra's Algorithm</h3>
+                  <h3 className="font-bold text-blue-800 mb-2">Dijkstra's Algorithm Results</h3>
                   <ul className="space-y-1 text-sm">
                     <li>Execution Time: {dijkstraMetrics.executionTime.toFixed(2)}ms</li>
                     <li>Nodes Visited: {dijkstraMetrics.nodesVisited}</li>
@@ -427,14 +371,36 @@ function App() {
                   </ul>
                 </div>
               )}
-              {astarMetrics && (
+              {algorithm === 'astar' && astarMetrics && (
                 <div className="p-4 bg-purple-50 rounded-lg">
-                  <h3 className="font-bold text-purple-800 mb-2">A* Algorithm</h3>
+                  <h3 className="font-bold text-purple-800 mb-2">A* Algorithm Results</h3>
                   <ul className="space-y-1 text-sm">
                     <li>Execution Time: {astarMetrics.executionTime.toFixed(2)}ms</li>
                     <li>Nodes Visited: {astarMetrics.nodesVisited}</li>
                     <li>Path Length: {astarMetrics.pathLength}</li>
                     <li>Path Found: {astarMetrics.pathFound ? 'Yes' : 'No'}</li>
+                  </ul>
+                </div>
+              )}
+              {algorithm === 'bfs' && bfsMetrics && (
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <h3 className="font-bold text-green-800 mb-2">BFS Algorithm Results</h3>
+                  <ul className="space-y-1 text-sm">
+                    <li>Execution Time: {bfsMetrics.executionTime.toFixed(2)}ms</li>
+                    <li>Nodes Visited: {bfsMetrics.nodesVisited}</li>
+                    <li>Path Length: {bfsMetrics.pathLength}</li>
+                    <li>Path Found: {bfsMetrics.pathFound ? 'Yes' : 'No'}</li>
+                  </ul>
+                </div>
+              )}
+              {algorithm === 'dfs' && dfsMetrics && (
+                <div className="p-4 bg-yellow-50 rounded-lg">
+                  <h3 className="font-bold text-yellow-800 mb-2">DFS Algorithm Results</h3>
+                  <ul className="space-y-1 text-sm">
+                    <li>Execution Time: {dfsMetrics.executionTime.toFixed(2)}ms</li>
+                    <li>Nodes Visited: {dfsMetrics.nodesVisited}</li>
+                    <li>Path Length: {dfsMetrics.pathLength}</li>
+                    <li>Path Found: {dfsMetrics.pathFound ? 'Yes' : 'No'}</li>
                   </ul>
                 </div>
               )}
