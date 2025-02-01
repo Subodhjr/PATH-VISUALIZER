@@ -78,34 +78,52 @@ function App() {
     setDfsMetrics(null);
   }, []);
 
-  const handleNodeClick = useCallback((row: number, col: number) => {
+  const handleNodeClick = (row: number, col: number) => {
     if (isRunning) return;
-
-    setGrid(prevGrid => {
-      const newGrid = prevGrid.map(rowArray => rowArray.map(node => ({ ...node })));
-      const clickedNode = newGrid[row][col];
-
-      if (currentTool === 'start') {
-        if (startNode) {
+    
+    const node = grid[row][col];
+    if (currentTool === 'start') {
+      // Remove previous start node if exists
+      if (startNode) {
+        setGrid(g => {
+          const newGrid = g.map(row => row.map(node => ({ ...node })));
           newGrid[startNode.row][startNode.col].type = 'empty';
-        }
-        clickedNode.type = 'start';
-        setStartNode(clickedNode);
-      } else if (currentTool === 'end') {
-        if (endNode) {
-          newGrid[endNode.row][endNode.col].type = 'empty';
-        }
-        clickedNode.type = 'end';
-        setEndNode(clickedNode);
-      } else if (currentTool === 'wall' && 
-                 clickedNode.type !== 'start' && 
-                 clickedNode.type !== 'end') {
-        clickedNode.type = clickedNode.type === 'wall' ? 'empty' : 'wall';
+          return newGrid;
+        });
       }
-
-      return newGrid;
-    });
-  }, [currentTool, isRunning, startNode, endNode]);
+      // Set new start node
+      setGrid(g => {
+        const newGrid = g.map(row => row.map(node => ({ ...node })));
+        newGrid[row][col].type = 'start';
+        return newGrid;
+      });
+      setStartNode(node);
+    } else if (currentTool === 'end') {
+      // Remove previous end node if exists
+      if (endNode) {
+        setGrid(g => {
+          const newGrid = g.map(row => row.map(node => ({ ...node })));
+          newGrid[endNode.row][endNode.col].type = 'empty';
+          return newGrid;
+        });
+      }
+      // Set new end node
+      setGrid(g => {
+        const newGrid = g.map(row => row.map(node => ({ ...node })));
+        newGrid[row][col].type = 'end';
+        return newGrid;
+      });
+      setEndNode(node);
+    } else if (currentTool === 'wall' && 
+               node.type !== 'start' && 
+               node.type !== 'end') {
+      setGrid(g => {
+        const newGrid = g.map(row => row.map(n => ({ ...n })));
+        newGrid[row][col].type = newGrid[row][col].type === 'wall' ? 'empty' : 'wall';
+        return newGrid;
+      });
+    }
+  };
 
   const handleMouseDown = useCallback((row: number, col: number) => {
     if (isRunning || currentTool !== 'wall') return;
@@ -401,159 +419,158 @@ function App() {
             Pathfinding Visualizer
           </h1>
 
-          {/* Controls Section - Make it stack on mobile */}
-          <div className="flex flex-col gap-3 mb-4 md:mb-6">
-            {/* Algorithm Selection */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div className="flex gap-1 sm:gap-2">
+          {/* Controls Section with better mobile layout */}
+          <div className="flex flex-col gap-2">
+            {/* Algorithm and Speed Selectors */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                className="w-full sm:w-44 px-2 py-1.5 text-sm md:text-base border rounded-lg"
+                value={comparisonMode}
+                onChange={(e) => setComparisonMode(e.target.value as ComparisonMode)}
+                disabled={isRunning}
+              >
+                <option value="single">Single Algorithm</option>
+                <option value="compare">Compare Algorithms</option>
+              </select>
+
+              <select
+                className="w-full sm:w-36 px-2 py-1.5 text-sm md:text-base border rounded-lg"
+                value={animationSpeed}
+                onChange={(e) => setAnimationSpeed(e.target.value as AnimationSpeed)}
+                disabled={isRunning}
+              >
+                <option value="veryFast">Very Fast</option>
+                <option value="fast">Fast</option>
+                <option value="normal">Normal</option>
+                <option value="slow">Slow</option>
+                <option value="verySlow">Very Slow</option>
+              </select>
+
+              {comparisonMode === 'single' && (
                 <select
-                  className="flex-1 sm:w-44 px-2 py-1 md:px-4 md:py-2 text-sm md:text-base border rounded-lg"
-                  value={comparisonMode}
-                  onChange={(e) => setComparisonMode(e.target.value as ComparisonMode)}
+                  className="w-full sm:w-44 px-2 py-1.5 text-sm md:text-base border rounded-lg"
+                  value={algorithm}
+                  onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
                   disabled={isRunning}
                 >
-                  <option value="single">Single Algorithm</option>
-                  <option value="compare">Compare Algorithms</option>
+                  <option value="dijkstra">Dijkstra's Algorithm</option>
+                  <option value="astar">A* Algorithm</option>
+                  <option value="bfs">Breadth-First Search</option>
+                  <option value="dfs">Depth-First Search</option>
                 </select>
-
-                <select
-                  className="flex-1 sm:w-36 px-2 py-1 md:px-4 md:py-2 text-sm md:text-base border rounded-lg"
-                  value={animationSpeed}
-                  onChange={(e) => setAnimationSpeed(e.target.value as AnimationSpeed)}
-                  disabled={isRunning}
-                >
-                  <option value="veryFast">Very Fast</option>
-                  <option value="fast">Fast</option>
-                  <option value="normal">Normal</option>
-                  <option value="slow">Slow</option>
-                  <option value="verySlow">Very Slow</option>
-                </select>
-
-                {comparisonMode === 'single' && (
-                  <select
-                    className="flex-1 sm:w-44 px-2 py-1 md:px-4 md:py-2 text-sm md:text-base border rounded-lg"
-                    value={algorithm}
-                    onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
-                    disabled={isRunning}
-                  >
-                    <option value="dijkstra">Dijkstra's Algorithm</option>
-                    <option value="astar">A* Algorithm</option>
-                    <option value="bfs">Breadth-First Search</option>
-                    <option value="dfs">Depth-First Search</option>
-                  </select>
-                )}
-              </div>
-
-              {comparisonMode === 'compare' && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm md:text-base">
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedAlgorithms.dijkstra}
-                      onChange={(e) => setSelectedAlgorithms(prev => ({
-                        ...prev,
-                        dijkstra: e.target.checked
-                      }))}
-                      disabled={isRunning}
-                    />
-                    Dijkstra's
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedAlgorithms.astar}
-                      onChange={(e) => setSelectedAlgorithms(prev => ({
-                        ...prev,
-                        astar: e.target.checked
-                      }))}
-                      disabled={isRunning}
-                    />
-                    A*
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedAlgorithms.bfs}
-                      onChange={(e) => setSelectedAlgorithms(prev => ({
-                        ...prev,
-                        bfs: e.target.checked
-                      }))}
-                      disabled={isRunning}
-                    />
-                    BFS
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedAlgorithms.dfs}
-                      onChange={(e) => setSelectedAlgorithms(prev => ({
-                        ...prev,
-                        dfs: e.target.checked
-                      }))}
-                      disabled={isRunning}
-                    />
-                    DFS
-                  </label>
-                </div>
               )}
             </div>
 
-            {/* Action Buttons and Tools in one line */}
-            <div className="grid grid-cols-5 sm:flex sm:flex-wrap sm:justify-between gap-2">
-              <div className="col-span-2 sm:flex sm:gap-2">
-                <button
-                  className="w-full sm:w-44 md:w-52 flex items-center justify-center gap-1 px-3 py-1 md:px-4 md:py-2 bg-green-500 text-white text-sm md:text-base rounded-lg hover:bg-green-600 disabled:opacity-50"
-                  onClick={visualizeAlgorithm}
-                  disabled={!startNode || !endNode || isRunning}
-                >
-                  <Play size={16} className="hidden sm:block" />
-                  {comparisonMode === 'single' 
-                    ? `Visualize ${algorithm === 'dijkstra' ? "Dijkstra's" : algorithm === 'astar' ? "A*" : algorithm === 'bfs' ? "BFS" : "DFS"}`
-                    : 'Compare'
-                  }
-                </button>
-                <button
-                  className="w-full sm:w-24 flex items-center justify-center gap-1 px-3 py-1 md:px-4 md:py-2 bg-gray-200 text-sm md:text-base rounded-lg hover:bg-gray-300 disabled:opacity-50"
-                  onClick={resetGrid}
-                  disabled={isRunning}
-                >
-                  <RotateCcw size={16} className="hidden sm:block" />
-                  Reset
-                </button>
-              </div>
-
-              <div className="col-span-3 sm:flex sm:gap-2">
-                <button
-                  className={`w-full sm:w-20 flex items-center justify-center gap-1 px-2 py-1 md:px-3 md:py-2 rounded-lg text-sm md:text-base ${
-                    currentTool === 'wall' ? 'bg-blue-500 text-white' : 'bg-gray-200'
-                  }`}
-                  onClick={() => setCurrentTool('wall')}
-                  disabled={isRunning}
-                >
-                  <MousePointer2 size={16} className="hidden sm:block" />
-                  Wall
-                </button>
-                <button
-                  className={`w-full sm:w-20 flex items-center justify-center gap-1 px-2 py-1 md:px-3 md:py-2 rounded-lg text-sm md:text-base ${
-                    currentTool === 'start' ? 'bg-green-500 text-white' : 'bg-gray-200'
-                  }`}
-                  onClick={() => setCurrentTool('start')}
-                  disabled={isRunning}
-                >
-                  Start
-                </button>
-                <button
-                  className={`w-full sm:w-20 flex items-center justify-center gap-1 px-2 py-1 md:px-3 md:py-2 rounded-lg text-sm md:text-base ${
-                    currentTool === 'end' ? 'bg-red-500 text-white' : 'bg-gray-200'
-                  }`}
-                  onClick={() => setCurrentTool('end')}
-                  disabled={isRunning}
-                >
-                  End
-                </button>
-              </div>
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 sm:flex gap-2">
+              <button
+                className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1.5 bg-green-500 text-white text-sm md:text-base rounded-lg hover:bg-green-600 disabled:opacity-50"
+                onClick={visualizeAlgorithm}
+                disabled={!startNode || !endNode || isRunning}
+              >
+                <Play size={16} className="hidden sm:block" />
+                {comparisonMode === 'single' 
+                  ? `Visualize ${algorithm === 'dijkstra' ? "Dijkstra's" : algorithm === 'astar' ? "A*" : algorithm === 'bfs' ? "BFS" : "DFS"}`
+                  : 'Compare'
+                }
+              </button>
+              <button
+                className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-1.5 bg-gray-200 text-sm md:text-base rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                onClick={resetGrid}
+                disabled={isRunning}
+              >
+                <RotateCcw size={16} className="hidden sm:block" />
+                Reset
+              </button>
             </div>
+
+            {/* Tool Buttons */}
+            <div className="grid grid-cols-3 sm:flex gap-2">
+              <button
+                className={`w-full sm:w-20 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-sm md:text-base ${
+                  currentTool === 'wall' ? 'bg-blue-500 text-white' : 'bg-gray-200'
+                }`}
+                onClick={() => setCurrentTool('wall')}
+                disabled={isRunning}
+              >
+                <MousePointer2 size={16} className="hidden sm:block" />
+                Wall
+              </button>
+              <button
+                className={`w-full sm:w-20 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-sm md:text-base ${
+                  currentTool === 'start' ? 'bg-green-500 text-white' : 'bg-gray-200'
+                }`}
+                onClick={() => setCurrentTool('start')}
+                disabled={isRunning}
+              >
+                Start
+              </button>
+              <button
+                className={`w-full sm:w-20 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-sm md:text-base ${
+                  currentTool === 'end' ? 'bg-red-500 text-white' : 'bg-gray-200'
+                }`}
+                onClick={() => setCurrentTool('end')}
+                disabled={isRunning}
+              >
+                End
+              </button>
+            </div>
+
+            {/* Comparison Checkboxes */}
+            {comparisonMode === 'compare' && (
+              <div className="grid grid-cols-2 gap-2 text-sm md:text-base">
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlgorithms.dijkstra}
+                    onChange={(e) => setSelectedAlgorithms(prev => ({
+                      ...prev,
+                      dijkstra: e.target.checked
+                    }))}
+                    disabled={isRunning}
+                  />
+                  Dijkstra's
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlgorithms.astar}
+                    onChange={(e) => setSelectedAlgorithms(prev => ({
+                      ...prev,
+                      astar: e.target.checked
+                    }))}
+                    disabled={isRunning}
+                  />
+                  A*
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlgorithms.bfs}
+                    onChange={(e) => setSelectedAlgorithms(prev => ({
+                      ...prev,
+                      bfs: e.target.checked
+                    }))}
+                    disabled={isRunning}
+                  />
+                  BFS
+                </label>
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedAlgorithms.dfs}
+                    onChange={(e) => setSelectedAlgorithms(prev => ({
+                      ...prev,
+                      dfs: e.target.checked
+                    }))}
+                    disabled={isRunning}
+                  />
+                  DFS
+                </label>
+              </div>
+            )}
           </div>
+
           {/* Metrics Display */}
           {comparisonMode === 'compare' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">

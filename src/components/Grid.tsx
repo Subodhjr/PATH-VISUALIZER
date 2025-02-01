@@ -1,5 +1,6 @@
 import React from 'react';
 import { Node, GridSize } from '../types/grid';
+import NodeComponent from './Node';
 
 interface GridProps {
   grid: Node[][];
@@ -11,14 +12,14 @@ interface GridProps {
   onMouseUp: () => void;
 }
 
-const Grid: React.FC<GridProps> = React.memo(({
+const Grid: React.FC<GridProps> = ({
   grid,
   gridSize,
   cellSize,
   onNodeClick,
   onMouseDown,
   onMouseEnter,
-  onMouseUp,
+  onMouseUp
 }) => {
   const getNodeColor = (node: Node): string => {
     switch (node.type) {
@@ -43,60 +44,53 @@ const Grid: React.FC<GridProps> = React.memo(({
     }
   };
 
-  const handleMouseEvent = (
-    event: React.MouseEvent<HTMLDivElement>,
-    handler: (row: number, col: number) => void
-  ) => {
-    const element = event.target as HTMLElement;
-    const row = parseInt(element.getAttribute('data-row') || '');
-    const col = parseInt(element.getAttribute('data-col') || '');
-    
-    if (!isNaN(row) && !isNaN(col)) {
-      handler(row, col);
+  const handleTouchStart = (row: number, col: number) => {
+    onMouseDown(row, col);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (element?.getAttribute('data-node')) {
+      const row = parseInt(element.getAttribute('data-row') || '0');
+      const col = parseInt(element.getAttribute('data-col') || '0');
+      onMouseEnter(row, col);
     }
+  };
+
+  const handleTouchEnd = () => {
+    onMouseUp();
   };
 
   return (
     <div 
       className="relative touch-none"
       style={{
-        width: gridSize.cols * cellSize,
-        height: gridSize.rows * cellSize,
-        maxWidth: '100vw',
-        maxHeight: '70vh',
+        display: 'grid',
+        gridTemplateColumns: `repeat(${gridSize.cols}, ${cellSize}px)`,
+        width: 'fit-content',
+        gap: 0
       }}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     >
-      <div 
-        className="grid gap-0 border border-gray-300 rounded-lg"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: `repeat(${gridSize.cols}, ${cellSize}px)`,
-        }}
-      >
-        {grid.map((row, rowIdx) =>
-          row.map((node, colIdx) => (
-            <div
-              key={`${rowIdx}-${colIdx}`}
-              data-row={rowIdx}
-              data-col={colIdx}
-              className="border border-gray-200"
-              style={{
-                width: cellSize,
-                height: cellSize,
-                backgroundColor: getNodeColor(node),
-                transition: 'background-color 0.3s ease',
-              }}
-              onClick={(e) => handleMouseEvent(e, onNodeClick)}
-              onMouseDown={(e) => handleMouseEvent(e, onMouseDown)}
-              onMouseEnter={(e) => handleMouseEvent(e, onMouseEnter)}
-              onMouseUp={onMouseUp}
-            />
-          ))
-        )}
-      </div>
+      {grid.map((row, rowIdx) => 
+        row.map((node, colIdx) => (
+          <NodeComponent
+            key={`${rowIdx}-${colIdx}`}
+            node={node}
+            onMouseDown={() => onMouseDown(rowIdx, colIdx)}
+            onMouseEnter={() => onMouseEnter(rowIdx, colIdx)}
+            onMouseUp={onMouseUp}
+            onTouchStart={() => handleTouchStart(rowIdx, colIdx)}
+            onClick={() => onNodeClick(rowIdx, colIdx)}
+          />
+        ))
+      )}
     </div>
   );
-});
+};
 
 Grid.displayName = 'Grid';
 
